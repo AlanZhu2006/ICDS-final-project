@@ -5,6 +5,7 @@ Created on Sun Apr  5 00:00:32 2015
 """
 from chat_utils import *
 import json
+import subprocess
 
 
 class ClientSM:
@@ -14,6 +15,7 @@ class ClientSM:
         self.me = ''
         self.out_msg = ''
         self.s = s
+        self.system_msg = ''
 
     def set_state(self, state):
         self.state = state
@@ -48,6 +50,14 @@ class ClientSM:
         mysend(self.s, msg)
         self.out_msg += 'You are disconnected from ' + self.peer + '\n'
         self.peer = ''
+
+    def start_game(self):
+        # 使用 subprocess 启动 go_pygame.py
+        try:
+            subprocess.Popen(['python', 'go_pygame.py'])  # 启动 Pygame 游戏脚本
+            self.system_msg += "Pygame 游戏已启动。\n"
+        except Exception as e:
+            self.system_msg += f"启动游戏失败: {str(e)}\n"
 
     def proc(self, my_msg, peer_msg):
         self.out_msg = ''
@@ -131,6 +141,13 @@ class ClientSM:
 # This is event handling instate "S_CHATTING"
 # ==============================================================================
         elif self.state == S_CHATTING:
+            if my_msg == "gamestart":
+
+                    # 启动 Pygame 游戏
+                self.system_msg += "游戏开始！启动 Pygame 游戏...\n"
+                self.start_game()
+                self.out_msg += 'You are connected with ' + self.peer + '\n'
+     
             if isinstance(peer_msg, str):
                 peer_msg = peer_msg.strip()
                 if peer_msg == '':
