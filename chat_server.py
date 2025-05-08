@@ -14,8 +14,17 @@ import json
 import pickle as pkl
 from chat_utils import *
 import chat_group as grp
+import numpy as np                # 图像数组处理
+from tensorflow import keras 
+import numpy as np
+from PIL import Image
+import io
+from flask import Flask, request, jsonify
+import contextlib
 
-
+app = Flask(__name__)
+model = keras.models.load_model("cnn_emnist_62class.keras")
+emnist_labels = list("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
 class Server:
     def __init__(self):
         self.new_clients = []  # list of new sockets of which the user id is not known
@@ -229,8 +238,37 @@ class Server:
 # ==============================================================================
 # main loop, loops *forever*
 # ==============================================================================
+
+    @app.route('/predict', methods=['POST'])
+
+    def predict():
+    # 接收客户端发送的图像数据
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image provided'}), 400
+    
+    # 读取并预处理图像
+        img_file = request.files['image']
+        img = Image.open(io.BytesIO(img_file.read())).convert('L')
+        img = img.resize((28, 28))
+        img = img.point(lambda x: 255 - x)  # 反色
+    
+    # 转换为模型输入格式
+        img_array = np.array(img) / 255.0
+        img_array = img_array.reshape(1, 28, 28, 1)
+    
+    # 预测
+        predictions = model.predict(img_array)
+        predicted_class = np.argmax(predictions)
+        result = emnist_labels[predicted_class]
+    
+        return jsonify({'prediction': result}) 
+
     def run(self):
         print('starting server...')
+        from threading import Thread
+        flask_thread = Thread(target=lambda: app.run(host='127.0.0.1', port=50001, debug=False, use_reloader=False))
+        flask_thread.daemon = True
+        flask_thread.start()
         while(1):
             read, write, error = select.select(self.all_sockets, [], [])
             print('checking logged clients..')
@@ -246,6 +284,8 @@ class Server:
                 # new client request
                 sock, address = self.server.accept()
                 self.new_client(sock)
+    
+
 
 
 def main():
