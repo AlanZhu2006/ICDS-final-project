@@ -179,6 +179,8 @@ def login():
                 try:
                     if game_name == "space invader":
                         os.system('python main.py')  # 启动 Space Invader
+                    elif game_name == "chess painting":
+                        os.system('python chess_painting.py')
                     elif game_name == "Tetris":
                         os.system('python Tetris.py')  # 启动 Tetris
                     elif game_name == "Wordle Game":
@@ -191,9 +193,10 @@ def login():
                 finally:
                     game_window.destroy()  # 关闭弹窗
 
-            tk.Button(game_window, text="Space Invader", command=lambda: launch_game("space invader")).place(x=50, y=30, width=200, height=40)
-            tk.Button(game_window, text="Tetris", command=lambda: launch_game("Tetris")).place(x=50, y=80, width=200, height=40)
-            tk.Button(game_window, text="Wordle Game", command=lambda: launch_game("Wordle Game")).place(x=50, y=130, width=200, height=40)
+            tk.Button(game_window, text="Chess Painting", command=lambda: launch_game("chess painting")).place(x=50, y=150, width=200, height=40)
+            tk.Button(game_window, text="Space Invader", command=lambda: launch_game("space invader")).place(x=50, y=0, width=200, height=40)
+            tk.Button(game_window, text="Tetris", command=lambda: launch_game("Tetris")).place(x=50, y=50, width=200, height=40)
+            tk.Button(game_window, text="Wordle Game", command=lambda: launch_game("Wordle Game")).place(x=50, y=100, width=200, height=40)
         
         game_button = tk.Button(new_window, text="game", command=game_button_action)
         game_button.place(x=10, y=500, width=button_width, height=40)

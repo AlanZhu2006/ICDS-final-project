@@ -13,6 +13,9 @@ menu = "\n++++ Choose one of the following commands\n \
         time: calendar time in the system\n \
         who: to find out who else are there\n \
         c _peer_: to connect to the _peer_ and chat\n \
+        gamestart: to start a game with your peer after connection created!\n \
+        accept: to accept the game with your peer if you see the message of gamestart \n \
+        A1 ~ O15: input your move on the board after game starts (e.g., A1, H8, O15)\n \
         ? _term_: to search your chat logs where _term_ appears\n \
         p _#_: to get number <#> sonnet\n \
         q: to leave the chat system\n\n"

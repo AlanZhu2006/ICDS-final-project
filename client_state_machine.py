@@ -19,7 +19,8 @@ class ClientSM:
         self.out_msg = ''
         self.s = s
         self.system_msg = ''
-
+        self.game_socket = None
+        self.game_started = False
     def set_state(self, state):
         self.state = state
 
@@ -101,6 +102,10 @@ class ClientSM:
                     if self.connect_to(peer) == True:
                         self.state = S_CHATTING
                         self.out_msg += 'Connect to ' + peer + '. Chat away!\n\n'
+                        self.out_msg += 'If you want to play a game, type "gamestart" to accept start a game between you and your peer\n'
+                        self.out_msg += 'Once you see the message of "gamestart" from your peer, type "accept" to accept the game!\n'
+                        self.out_msg += 'A1 ~ O15: input your message about move on the board after game starts (e.g., A1, H8, O15)\n '
+                        self.out_msg += 'If you want to quit, type "bye" to disconnect\n'
                         self.out_msg += '-----------------------------------\n'
                     else:
                         self.out_msg += 'Connection unsuccessful\n'
@@ -142,7 +147,12 @@ class ClientSM:
                     peer = peer_msg["from"]
                     self.out_msg += f"You're connected with {peer}"
                     self.out_msg += 'Connect to ' + peer + '. Chat away!\n\n-----------------------------------\n'
-                    self.state = S_CHATTING
+                    self.out_msg += 'If you want to play a game, type "gamestart" to accept start a game between you and your peer\n'
+                    self.out_msg += 'Once you see the message of "gamestart" from your peer, type "accept" to accept the game!\n'
+                    self.out_msg += 'A1 ~ O15: input your message about move on the board after game starts (e.g., A1, H8, O15)\n '
+                    self.out_msg += 'If you want to quit, type "bye" to disconnect\n'
+                    self.out_msg += '-----------------------------------\n'
+                self.state = S_CHATTING
                     # ----------end of your code----#
 
 # ==============================================================================
@@ -186,18 +196,84 @@ class ClientSM:
                 elif peer_msg["action"] == "connect":
                     self.out_msg += peer_msg["from"] + "joined"
                 # ----------end of your code----#
-            if my_msg == "gamestart":
-
-                # 启动 Pygame 游戏
-                self.system_msg += "游戏开始！启动 Pygame 游戏...\n"
-                self.start_game()
-                self.out_msg += 'You are connected with ' + self.peer + '\n' # 和 Pygame 中端口匹配
+            if my_msg.lower() == "gamestart":
+                self.system_msg += "Game Start\n"
+                if not self.game_started:
+                    self.start_game()
+                    self.game_started = True
+                self.out_msg += 'You are connected with ' + self.peer + '\n'
+                self.out_msg += (
+                        "The game has started! Enjoy the game :)\n"
+                        "- Wait for your opponent to type 'accept' to start the match.\n"
+                        "-----------------------------------\n")
+                msg = json.dumps({
+                    "action": "exchange",
+                    "from": "[" + self.me + "]",
+                    "message": (
+                        "You are invited to play game! Input 'accept' to confirm invitation.\n"
+                    )
+                })
+                mysend(self.s, msg)
+                
             elif re.match(r'^[A-Ta-t](1[0-5]|[1-9])$', my_msg.strip()) and self.game_socket:
                 try:
                     self.game_socket.sendall(my_msg.encode())
-                    self.system_msg += f"你在棋盘上落子：{my_msg}\n"
+                    self.system_msg += f"You make move：{my_msg}\n"
                 except Exception as e:
-                    self.system_msg += f"发送坐标失败: {str(e)}\n"
+                    self.system_msg += f"Failure: {str(e)}\n"
+
+            if my_msg == 'accept':
+                self.game_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.game_socket.settimeout(5)  # 设置连接超时为5秒
+                self.game_socket.connect(('127.0.0.1', 50002))
+                self.system_msg += "Pygame 游戏已启动并连接成功。\n"
+                self.out_msg += 'You are connected with ' + self.peer + '\n'
+                self.out_msg += (
+                                        "-----------------------------------\n"
+                                        "You have confirmed! Enjoy the game :)\n"
+                                        "-----------------------------------\n"
+                                )
+                self.out_msg += (
+                                "\n"
+                                "-----------------------------------\n"
+                                " Game Instructions:\n"
+                                "\n"
+                                "- Input your move using coordinates like 'A1', 'H8', or 'O15'.\n"
+                                "- Valid inputs: A1 ~ O15 (no lowercase required).\n"
+                                "- Once you have five in a line, you win\n"
+                                "- Only one player needs to type 'gamestart'; the other types 'accept'.\n"
+                                "- ⚠️ Make sure the game window is open before making moves.\n"
+                                "- If you want to exit the game, type 'bye'.\n"
+                                "-----------------------------------\n"
+                                )
+                msg = json.dumps({
+                    "action": "exchange",
+                    "from": "[" + self.me + "]",
+                    "message": (
+                                "\n"
+                                "-----------------------------------\n"
+                                " Game Instructions:\n"
+                                "\n"
+                                "- Input your move using coordinates like 'A1', 'H8', or 'O15'.\n"
+                                "- Valid inputs: A1 ~ O15 (no lowercase required).\n"
+                                "- Once you have five in a line, you win\n"
+                                "- Only one player needs to type 'gamestart'; the other types 'accept'.\n"
+                                "- ⚠️ Make sure the game window is open before making moves.\n"
+                                "- If you want to exit the game, type 'bye'.\n"
+                                "-----------------------------------\n"
+                                )
+                    
+                })
+                mysend(self.s, msg)
+
+            if isinstance(peer_msg, list):
+                for msg in peer_msg:
+                    if isinstance(msg, str) and re.match(r'^[A-Ta-t](1[0-5]|[1-9])$', msg.strip()) and self.game_socket:
+                        try:
+                            self.game_socket.sendall(msg.encode())
+                            self.system_msg += f"Your opponent made a move: {msg}\n"
+                        except Exception as e:
+                            self.system_msg += f"Failed to send opponent move: {str(e)}\n"
 
    
             # Display the menu again

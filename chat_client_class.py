@@ -104,30 +104,7 @@ class Client:
 #==============================================================================
     def proc(self):
         my_msg, peer_msg = self.get_msgs()
-
-        # 只有在S_CHATTING状态下才允许启动游戏
-
-            # 检测是否是游戏指令
-        if my_msg == "gamestart":
-            if self.state == S_CHATTING:
-                    # 启动 Pygame 游戏
-                self.system_msg += "游戏开始！启动 Pygame 游戏...\n"
-                self.start_game()
-            else:
-                self.system_msg += self.sm.proc(my_msg, peer_msg)
-        else:
-            # 正常处理聊天消息
-            self.system_msg += self.sm.proc(my_msg, peer_msg)
-        
-
-    def start_game(self):
-        # 使用 subprocess 启动 go_pygame.py
-        try:
-            subprocess.Popen(['python', 'go_pygame.py'])  # 启动 Pygame 游戏脚本
-            self.system_msg += "Pygame 游戏已启动。\n"
-        except Exception as e:
-            self.system_msg += f"启动游戏失败: {str(e)}\n"
-
+        self.system_msg += self.sm.proc(my_msg, peer_msg)
     def enter_input(self, text):
         self.console_input.append(text)
 

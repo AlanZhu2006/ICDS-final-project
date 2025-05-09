@@ -203,24 +203,6 @@ def make_move(x, y, player):
         current_player = 3 - player  # 切换玩家(1<->2)
         return True
     return False
-def handle_move(x, y):
-    global game_over, winner, current_player
-    
-    if game_over:
-        restart_game()
-        return
-    
-    if make_move(x, y, current_player):
-        # 检查游戏是否结束
-        if check_win(x, y):
-            game_over = True
-            winner = current_player
-        elif check_draw():
-            game_over = True
-            winner = None
-        else:
-            # 切换到下一个玩家
-            current_player = 1 if current_player == 2 else 2
 
 def check_win(x, y):
     """检查是否获胜"""
@@ -339,49 +321,43 @@ def socket_listener():
                 print(f"[游戏服务器] 错误: {str(e)}")
 
 def main():
-    global hover_pos, game_over, winner
-
+    global current_player, game_over, winner, hover_pos
     pygame.init()
     running = True
-
     while running:
         pygame.display.flip()
-        hover_pos = None
-
+        hover_pos = None  # 重置悬停位置
+        
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
-
-            elif event.type == pygame.MOUSEMOTION:
+            
+            elif event.type == MOUSEMOTION:  # 鼠标移动事件
                 board_pos = get_board_position(event.pos)
                 if board_pos:
                     hover_pos = board_pos
-
-            elif game_over:
-                # 游戏结束后按任意键或点击鼠标重启
-                if event.type == pygame.KEYDOWN or (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
+            
+            
+                if game_over:
                     restart_game()
-
-        # 如果游戏没结束，检查是否有人赢或平局
-        if not game_over:
-            for x in range(BOARD_SIZE):
-                for y in range(BOARD_SIZE):
-                    if board[y][x] != 0:
+                    continue
+                
+                board_pos = get_board_position(event.pos)
+                if board_pos:
+                    x, y = board_pos
+                    if make_move(x, y, current_player):
+                        # 检查游戏是否结束
                         if check_win(x, y):
                             game_over = True
-                            winner = board[y][x]
-                            break
-                if game_over:
-                    break
-            if not game_over and check_draw():
-                game_over = True
-                winner = None
-
+                            winner = current_player
+                        elif check_draw():
+                            game_over = True
+                            winner = None
         draw_board()
         draw_pieces()
         draw_game_status()
-
+        
         pygame.display.flip()
         pygame.time.delay(60)  # 控制帧率
     pygame.quit()
