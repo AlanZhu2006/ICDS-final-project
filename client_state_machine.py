@@ -6,7 +6,10 @@ Created on Sun Apr  5 00:00:32 2015
 from chat_utils import *
 import json
 import subprocess
-
+import socket
+import re
+import time
+import threading
 
 class ClientSM:
     def __init__(self, s):
@@ -52,10 +55,16 @@ class ClientSM:
         self.peer = ''
 
     def start_game(self):
-        # 使用 subprocess 启动 go_pygame.py
+        
         try:
-            subprocess.Popen(['python', 'go_pygame.py'])  # 启动 Pygame 游戏脚本
-            self.system_msg += "Pygame 游戏已启动。\n"
+            subprocess.Popen(['python', 'go_pygame.py'])
+            time.sleep(3)  # 等待游戏端口打开
+            self.game_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.game_socket.settimeout(5)  # 设置连接超时为5秒
+            self.game_socket.connect(('127.0.0.1', 50002))
+            self.system_msg += "Pygame 游戏已启动并连接成功。\n"
+        except socket.timeout:
+            self.system_msg += "连接超时: 无法连接到游戏端口\n"
         except Exception as e:
             self.system_msg += f"启动游戏失败: {str(e)}\n"
 
@@ -141,12 +150,7 @@ class ClientSM:
 # This is event handling instate "S_CHATTING"
 # ==============================================================================
         elif self.state == S_CHATTING:
-            if my_msg == "gamestart":
-
-                    # 启动 Pygame 游戏
-                self.system_msg += "游戏开始！启动 Pygame 游戏...\n"
-                self.start_game()
-                self.out_msg += 'You are connected with ' + self.peer + '\n'
+            
      
             if isinstance(peer_msg, str):
                 peer_msg = peer_msg.strip()
@@ -182,7 +186,20 @@ class ClientSM:
                 elif peer_msg["action"] == "connect":
                     self.out_msg += peer_msg["from"] + "joined"
                 # ----------end of your code----#
+            if my_msg == "gamestart":
 
+                # 启动 Pygame 游戏
+                self.system_msg += "游戏开始！启动 Pygame 游戏...\n"
+                self.start_game()
+                self.out_msg += 'You are connected with ' + self.peer + '\n' # 和 Pygame 中端口匹配
+            elif re.match(r'^[A-Ta-t](1[0-5]|[1-9])$', my_msg.strip()) and self.game_socket:
+                try:
+                    self.game_socket.sendall(my_msg.encode())
+                    self.system_msg += f"你在棋盘上落子：{my_msg}\n"
+                except Exception as e:
+                    self.system_msg += f"发送坐标失败: {str(e)}\n"
+
+   
             # Display the menu again
             if self.state == S_LOGGEDIN:
                 self.out_msg += menu

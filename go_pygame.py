@@ -3,6 +3,8 @@ import sys
 from pygame.locals import *
 import socket
 import threading
+import re
+import time
 # 初始化
 pygame.init()
 
@@ -255,27 +257,88 @@ def pos_from_label(label):
         return CELL_SIZE + col * CELL_SIZE, B_SIZE + row * B_SIZE
     return None
 def socket_listener():
+    """
+    游戏服务器Socket监听线程
+    处理客户端发送的棋子坐标（如"A1", "B2"等格式）
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('localhost', 65432))
-        s.listen()
-        print("等待聊天客户端连接...")
-        conn, addr = s.accept()
-        with conn:
-            print("已连接到客户端")
-            while True:
-                data = conn.recv(1024)
-                if not data:
-                    break
-                move = data.decode().strip()
-                print("收到坐标：", move)
-                pos = pos_from_label(move)
-                if pos:
-                    positions.append(pos)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # 允许地址重用
+        s.bind(('127.0.0.1', 50002))
+        s.listen(1)
+        print("[游戏服务器] 等待客户端连接...")
+        
+        while True:  # 持续接受新连接
+            conn, addr = None, None
+            try:
+                conn, addr = s.accept()
+                print(f"[游戏服务器] 客户端 {addr} 已连接")
+                
+                with conn:
+                    while True:
+                        try:
+                            # 接收数据
+                            data = conn.recv(1024)
+                            if not data:
+                                print(f"[游戏服务器] 客户端 {addr} 断开连接")
+                                break
+                            
+                            move = data.decode().strip().upper()  # 转为大写
+                            print(f"[游戏服务器] 收到坐标: {move}")
+                            
+                            # 验证坐标格式
+                            from re import match
+                            # 正则表达式检查坐标格式（A1, B15等）
+                            if not re.match(r'^[A-O](?:[1-9]|1[0-5])$', move):
+                                conn.sendall(b"ERROR: Invalid format (e.g. A1, B15)")
+                                continue
+                            
+                            # 转换坐标
+                            try:
+                                col = ord(move[0]) - ord('A')  # A=0, B=1,...,O=14
+                                row = int(move[1:]) - 1        # "1"->0, "15"->14
+                            except ValueError:
+                                conn.sendall(b"ERROR: Invalid coordinate")
+                                continue
+                            
+                            # 检查是否游戏结束
+                            if game_over:
+                                conn.sendall(b"ERROR: Game already over")
+                                continue
+                                
+                            # 尝试落子
+                            if make_move(col, row, current_player):
+                                # 检查游戏状态
+                                if check_win(col, row):
+                                    conn.sendall(b"WIN")
+                                elif check_draw():
+                                    conn.sendall(b"DRAW")
+                                else:
+                                    conn.sendall(b"OK")
+                            else:
+                                conn.sendall(b"ERROR: Invalid move")
+                                
+                        except ConnectionResetError:
+                            print(f"[游戏服务器] 客户端 {addr} 异常断开")
+                            break
+                        except Exception as e:
+                            print(f"[游戏服务器] 处理错误: {str(e)}")
+                            conn.sendall(f"ERROR: {str(e)}".encode())
+                            break
+                            
+            except KeyboardInterrupt:
+                print("[游戏服务器] 服务器关闭")
+                break
+            except Exception as e:
+                print(f"[游戏服务器] 服务器错误: {str(e)}")
+                if conn:
+                    conn.close()
+            finally:
+                if conn:
+                    conn.close()
 
 def main():
     global current_player, game_over, winner, hover_pos
     pygame.init()
-    threading.Thread(target=socket_listener, daemon=True).start()
     running = True
     while running:
         pygame.display.flip()
@@ -322,4 +385,6 @@ def main():
 
 
 if __name__ == "__main__":
+    network_thread = threading.Thread(target=socket_listener, daemon=True)
+    network_thread.start()
     main()
